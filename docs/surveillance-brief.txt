@@ -1,0 +1,51 @@
+TWO BRIEFINGS ON THE SAFESIGHT PROPOSAL
+Read both pages before the group discussion.
+
+PAGE ONE - Vendor briefing (SafeSight Ltd.)
+
+SafeSight is an AI camera system that identifies risky behaviour in
+school environments in real time - altercations, bullying situations,
+unauthorised area access - and alerts staff before incidents escalate.
+
+Key figures from our deployments:
+  - 92 percent detection accuracy across all monitored behaviours
+  - A reviewed alert takes staff under 30 seconds on average
+  - Reference school (11 months): reported incidents down 34 percent
+
+The system flags behaviour, not identity: no face recognition database
+is built, and video is retained for 72 hours only. Staff always make
+the final decision; SafeSight only recommends. In our reference
+deployments, staff describe the dashboard as "a colleague who never
+blinks."
+
+SafeSight offers your institution a full deployment covering shared
+spaces (corridors, cafeteria, yard) with staff training included.
+
+PAGE TWO - Statement (Digital Rights Watch)
+
+The vendor's own headline number deserves a second look. 92 percent
+accuracy means 8 percent of flags are wrong. In a school of roughly
+1,100 students, at the alert volumes SafeSight itself reports, that is
+approximately 90 students every week flagged for behaviour that was
+not risky at all. The vendor sheet does not say who has those 90
+conversations, how a flagged student is approached, or what record
+remains.
+
+Three further points the vendor sheet omits:
+
+1. The accuracy figure is self-reported and has not been independently
+   audited. No deployment of this system has published its false-flag
+   statistics.
+
+2. Audits of comparable systems consistently show that "risky
+   behaviour" classifiers flag some students more than others - louder
+   students, larger students, students in hoodies. The error rate is
+   not distributed evenly, and the students already under the most
+   scrutiny absorb most of it.
+
+3. Chilling effects are documented: students who know an algorithm is
+   watching change how they gather, speak and move - whether or not
+   they are ever flagged.
+
+A decision to adopt, reject or pilot should not be made from the
+vendor's page alone. Both pages of this brief describe the same system.

@@ -1,0 +1,856 @@
+* { box-sizing: border-box; }
+
+:root {
+  --bg: #eef1f6;
+  --panel: #ffffff;
+  --ink: #1e2433;
+  --ink-soft: #6b7385;
+  --line: #e3e7ee;
+  --accent: #4f46e5;
+  --floor: #f7f2e9;
+}
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.app { display: flex; flex-direction: column; height: 100%; }
+
+/* ── Presentation mode ───────────────────────────────────── */
+
+/* Real Fullscreen API already takes over the viewport; this only kicks in
+   when that API is unavailable/rejected (e.g. inside embedded preview
+   tooling) so Presentation Mode still visually works. */
+.app.simulated-fullscreen {
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--bg);
+}
+
+.presenting .data-source-badge { display: none; }
+
+.presenting .avatar:not(.speaking) {
+  /* Softened from 0.4: faces now carry listening/gaze information worth seeing. */
+  opacity: 0.55;
+  transition: opacity 0.3s ease;
+}
+
+.presentation-bar {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  z-index: 10000;
+  display: flex; gap: 8px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 8px; box-shadow: 0 8px 24px rgba(30, 36, 51, 0.18);
+}
+
+/* ── Presenter dock (task library) ───────────────────────── */
+
+.presenter-dock {
+  position: fixed; left: 50%; bottom: 88px; transform: translateX(-50%);
+  z-index: 10001;
+  display: flex; gap: 10px; align-items: stretch;
+  background: rgba(255, 255, 255, 0.97); border: 1px solid var(--line); border-radius: 16px;
+  padding: 12px; box-shadow: 0 12px 36px rgba(30, 36, 51, 0.22);
+  animation: dock-in 0.18s ease-out;
+}
+@keyframes dock-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.dock-card {
+  width: 215px; text-align: left;
+  background: var(--panel); border: 1.5px solid var(--line); border-radius: 12px;
+  padding: 10px 12px; cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.dock-card:hover { transform: translateY(-2px); border-color: #c3c9d6; }
+.dock-card-active { border-color: var(--accent); background: #eef2ff; }
+
+.dock-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.dock-key {
+  width: 20px; height: 20px; border-radius: 6px;
+  background: var(--ink); color: #fff;
+  font-size: 12px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.dock-label { font-size: 13px; font-weight: 700; }
+.dock-badge {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--ink-soft); margin-bottom: 4px;
+}
+.dock-signature { font-size: 11.5px; font-style: italic; color: #4b5563; }
+
+.dock-close {
+  align-self: flex-start;
+  border: none; background: transparent; color: var(--ink-soft);
+  font-size: 13px; cursor: pointer; padding: 2px 4px;
+}
+.dock-close:hover { color: var(--ink); }
+
+/* ── Top bar ─────────────────────────────────────────────── */
+
+.topbar {
+  display: flex; align-items: center; gap: 24px;
+  padding: 12px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar-title { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.2px; }
+
+.data-source-badge {
+  margin-left: auto;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+  padding: 3px 8px; border-radius: 999px;
+  max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.data-source-badge.placeholder {
+  text-transform: uppercase; letter-spacing: 0.5px;
+  color: #92400e; background: #fef3c7; border: 1px solid #fde68a;
+}
+.data-source-badge.real {
+  color: #15803d; background: #dcfce7; border: 1px solid #bbf7d0;
+}
+
+/* ── Downtime badge ──────────────────────────────────────── */
+
+.downtime-badge {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; color: var(--ink-soft);
+  background: #f8fafc; border: 1.5px solid var(--line);
+  padding: 5px 14px; border-radius: 999px;
+}
+.downtime-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #34d399;
+  animation: downtime-pulse 1.8s ease-in-out infinite;
+}
+@keyframes downtime-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* ── Phase indicator ─────────────────────────────────────── */
+
+.phase-indicator { display: flex; align-items: center; }
+.phase-step { display: flex; align-items: center; }
+
+.phase-pill {
+  font-size: 13px; font-weight: 600;
+  padding: 5px 14px; border-radius: 999px;
+  border: 1.5px solid var(--line); color: var(--ink-soft); background: var(--panel);
+  transition: all 0.25s ease;
+}
+.phase-pill.current { background: var(--accent); border-color: var(--accent); color: #fff; }
+.phase-pill.done { border-color: #c7d2fe; color: var(--accent); background: #eef2ff; }
+
+.phase-line { width: 26px; height: 2px; background: var(--line); }
+.phase-line.done { background: #c7d2fe; }
+
+/* ── Main layout ─────────────────────────────────────────── */
+
+.main { flex: 1; display: flex; gap: 16px; padding: 16px; min-height: 0; position: relative; }
+
+/* ── Classroom ───────────────────────────────────────────── */
+
+.classroom {
+  flex: 1; position: relative;
+  container-type: inline-size;
+  background: linear-gradient(180deg, #fbf8f2 0%, var(--floor) 100%);
+  border: 1px solid var(--line); border-radius: 16px;
+  min-height: 480px;
+  overflow: hidden;
+}
+
+.whiteboard {
+  position: absolute; left: 50%; top: 4%; transform: translateX(-50%);
+  width: 46%; min-width: 300px;
+  background: #fff; border: 2px solid #d8dde6; border-bottom-width: 6px; border-radius: 8px;
+  padding: 10px 16px 12px; text-align: center;
+  box-shadow: 0 2px 8px rgba(30, 36, 51, 0.06);
+}
+.whiteboard-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--ink-soft); margin-bottom: 2px;
+}
+.whiteboard-title { font-size: 15px; font-weight: 600; font-style: italic; color: #374151; }
+.whiteboard-empty .whiteboard-title { color: #9aa2b1; }
+
+.table {
+  position: absolute; left: 50%; top: 63%; transform: translate(-50%, -50%);
+  width: 46%; max-width: 420px; aspect-ratio: 1.9 / 1;
+  background: radial-gradient(ellipse at 50% 35%, #e8cfa4 0%, #d9b98c 70%);
+  border: 3px solid #c4a273; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.table-laptop { font-size: 28px; opacity: 0.85; }
+
+/* ── Seats & avatars ─────────────────────────────────────── */
+
+.seat {
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center;
+  width: 0; /* children center on the seat point */
+}
+
+.avatar {
+  padding: 0; border: none; background: transparent;
+  display: block; line-height: 0;
+  cursor: pointer; flex-shrink: 0;
+  border-radius: 14px;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+.avatar:hover { transform: scale(1.05); }
+.avatar.selected { outline: 2px solid var(--ink); outline-offset: 3px; }
+.avatar.speaking {
+  transform: scale(1.18);
+  filter: drop-shadow(0 0 14px var(--glow)) drop-shadow(0 7px 12px rgba(30, 36, 51, 0.28));
+}
+.avatar.idle {
+  animation: idle-bob 4.6s ease-in-out infinite;
+}
+
+@keyframes idle-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.seat-name { margin-top: 6px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.seat-role { font-size: 11px; color: var(--ink-soft); white-space: nowrap; }
+
+/* ── Ambient tag (pure animation, no API call) ──────────────*/
+
+.ambient-tag {
+  position: absolute; z-index: 5;
+  left: 50%; transform: translateX(-50%);
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.92); border: none; border-radius: 999px;
+  padding: 4px 11px; font-size: 11px; font-style: italic; color: var(--ink-soft);
+  box-shadow: 0 2px 6px rgba(30, 36, 51, 0.08);
+  animation: ambient-fade 2.3s ease-in-out;
+  pointer-events: none;
+}
+.ambient-above { bottom: 100px; }
+.ambient-below { top: 102px; }
+.ambient-icon { margin-right: 2px; }
+
+@keyframes ambient-fade {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(3px); }
+  15%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  82%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── Speech bubble ───────────────────────────────────────── */
+
+.bubble {
+  position: absolute; z-index: 10;
+  width: max-content; max-width: min(330px, 55cqw);
+  background: #fff; border: 2px solid; border-radius: 12px;
+  padding: 10px 13px;
+  font-size: 12.5px; line-height: 1.45;
+  box-shadow: 0 6px 18px rgba(30, 36, 51, 0.14);
+  /* enter/exit is animated by Framer Motion (motion.div x/y/scale/opacity
+     props in Seat.tsx) — the horizontal centering offset for .bubble-center
+     is applied there too (as a constant x), since Framer Motion's inline
+     transform otherwise supersedes any static transform set here. */
+}
+
+.bubble-above { bottom: 78px; }
+.bubble-below { top: 80px; }
+
+.bubble-center { left: 0; }
+.bubble-left   { left: -40px; }
+.bubble-right  { right: -40px; }
+
+.bubble-tail {
+  position: absolute; width: 12px; height: 12px;
+  background: #fff; border: 2px solid; border-color: inherit;
+  transform: rotate(45deg);
+}
+.bubble-tail-above {
+  bottom: -8px; border-top: none !important; border-left: none !important;
+}
+.bubble-tail-below {
+  top: -8px; border-bottom: none !important; border-right: none !important;
+}
+.bubble-center .bubble-tail { left: calc(50% - 6px); }
+.bubble-left .bubble-tail { left: 34px; }
+.bubble-right .bubble-tail { right: 34px; }
+
+/* ── Workspace panel ─────────────────────────────────────── */
+
+.workspace {
+  width: 340px; flex-shrink: 0;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+  padding: 16px; overflow-y: auto;
+}
+
+.workspace-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.workspace-header h2 { font-size: 15px; margin: 0; }
+
+.status-chip {
+  font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+}
+.status-chip.in_progress { background: #eef2ff; color: var(--accent); }
+.status-chip.accepted { background: #dcfce7; color: #15803d; }
+.status-chip.no_task { background: #f1f5f9; color: var(--ink-soft); }
+
+.task-card {
+  background: #f8fafc; border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 14px;
+}
+.task-card-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--ink-soft);
+}
+.task-card-title { font-size: 13.5px; font-weight: 700; margin: 3px 0; }
+.task-card-deliverable { font-size: 12px; color: var(--ink-soft); line-height: 1.45; }
+.task-card-empty { border-style: dashed; }
+.task-card-empty-text { font-size: 12.5px; color: #9aa2b1; font-style: italic; margin-top: 3px; }
+
+.ws-section { margin-bottom: 14px; }
+.ws-section-header {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--ink-soft); margin-bottom: 7px;
+}
+.ws-count {
+  background: var(--line); border-radius: 999px; padding: 1px 8px;
+  font-size: 11px; color: var(--ink);
+}
+
+.ws-empty { font-size: 12px; color: #a6adbd; font-style: italic; padding: 2px 0 4px; }
+
+.ws-entry {
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 9px 11px; margin-bottom: 7px;
+  animation: entry-in 0.35s ease-out;
+}
+@keyframes entry-in {
+  from { opacity: 0; transform: translateY(-5px); background: #fefce8; }
+  to   { opacity: 1; transform: translateY(0); background: transparent; }
+}
+
+.ws-entry-meta { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.ws-dot { width: 8px; height: 8px; border-radius: 50%; }
+.ws-author { font-size: 12px; font-weight: 700; }
+.ws-id { font-size: 10.5px; color: #a6adbd; font-family: ui-monospace, monospace; }
+.ws-content { font-size: 12px; line-height: 1.5; color: #374151; }
+
+/* ── Agent drawer ────────────────────────────────────────── */
+
+.drawer {
+  position: absolute; top: 16px; right: 372px; bottom: 16px;
+  width: 320px; z-index: 20;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+  padding: 18px; overflow-y: auto;
+  box-shadow: -8px 0 28px rgba(30, 36, 51, 0.12);
+  animation: drawer-in 0.2s ease-out;
+}
+@keyframes drawer-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.drawer-close {
+  position: absolute; top: 12px; right: 12px;
+  border: none; background: transparent; font-size: 14px; color: var(--ink-soft);
+  cursor: pointer; padding: 4px;
+}
+.drawer-close:hover { color: var(--ink); }
+
+.drawer-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.drawer-avatar {
+  width: 48px; height: 48px; border-radius: 50%;
+  color: #fff; font-size: 21px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.drawer-name { font-size: 16px; font-weight: 700; }
+.drawer-role { font-size: 12px; color: var(--ink-soft); }
+
+.drawer-section-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+  color: var(--ink-soft); margin: 14px 0 5px;
+}
+.drawer-persona { font-size: 12.5px; line-height: 1.55; color: #374151; margin: 0; }
+
+.talk-meter { height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.talk-meter-fill { height: 100%; border-radius: 999px; }
+
+.drawer-reasoning {
+  font-size: 12.5px; line-height: 1.55; font-style: italic; color: #4b5563;
+  background: #f8fafc; border-left: 3px solid var(--line);
+  padding: 8px 11px; border-radius: 0 8px 8px 0; margin: 0;
+}
+.drawer-reasoning.muted { color: #a6adbd; }
+
+/* ── Source document (the shared artifact) ───────────────── */
+
+.source-doc {
+  background: #fffdf4; border: 1px solid #eadfc0; border-radius: 10px;
+  margin-bottom: 12px; overflow: hidden;
+}
+.source-doc-head {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; padding: 8px 10px;
+  background: transparent; border: none; cursor: pointer; text-align: left;
+}
+.source-doc-title { font-size: 12.5px; font-weight: 700; flex: 1; color: var(--ink); }
+.source-doc-kind {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--ink-soft); white-space: nowrap;
+}
+.source-doc-chevron { font-size: 11px; color: var(--ink-soft); }
+.source-doc-excerpt {
+  font-size: 11.5px; font-style: italic; color: #6b6250;
+  padding: 0 10px 9px; line-height: 1.45;
+}
+.source-doc-text {
+  font-size: 11px; line-height: 1.55; color: #3d3829;
+  white-space: pre-wrap; font-family: inherit;
+  margin: 0; padding: 0 10px 10px;
+  max-height: 280px; overflow-y: auto;
+}
+
+.dock-doc { font-size: 12px; }
+
+/* ── Language toggle ─────────────────────────────────────── */
+
+.lang-toggle {
+  display: inline-flex; gap: 2px;
+  background: #eef1f6; border-radius: 8px; padding: 2px;
+}
+.lang-btn {
+  border: none; background: transparent; cursor: pointer;
+  font-size: 12px; font-weight: 700; color: var(--ink-soft);
+  padding: 3px 9px; border-radius: 6px;
+}
+.lang-btn-active { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(30,36,51,0.12); }
+
+/* ── Contribute overlay ──────────────────────────────────── */
+
+.contribute-overlay {
+  position: fixed; inset: 0; z-index: 10002;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(30, 36, 51, 0.35);
+}
+.contribute-card {
+  width: min(560px, 90vw);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+  padding: 16px; box-shadow: 0 16px 48px rgba(30, 36, 51, 0.3);
+}
+.contribute-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.contribute-title { font-size: 15px; font-weight: 700; }
+.contribute-hint { font-size: 12px; color: var(--ink-soft); }
+.contribute-text {
+  width: 100%; box-sizing: border-box; resize: vertical;
+  font: inherit; font-size: 15px; line-height: 1.5;
+  padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 10px;
+  background: #fff; color: var(--ink);
+}
+.contribute-text:focus { outline: none; border-color: #475569; }
+.contribute-target { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.contribute-target-label { font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.contribute-target-select {
+  font-size: 13px; padding: 4px 8px; border-radius: 7px;
+  border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer;
+}
+.contribute-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.contribute-moves { display: flex; gap: 6px; }
+
+/* Thinking indicator on a seat while an agent generates a live reply */
+.seat-thinking { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); z-index: 12; }
+.seat-thinking-dots {
+  display: inline-flex; gap: 3px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 999px; padding: 4px 8px;
+  box-shadow: 0 2px 6px rgba(30, 36, 51, 0.15);
+}
+.seat-thinking-dots span {
+  width: 5px; height: 5px; border-radius: 50%; background: var(--ink-soft);
+  animation: thinking-bounce 1.2s ease-in-out infinite;
+}
+.seat-thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.seat-thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes thinking-bounce {
+  0%, 60%, 100% { opacity: 0.35; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+.contribute-move {
+  font-size: 12px; font-weight: 600; color: #fff;
+  padding: 4px 10px; border: 2px solid transparent; border-radius: 999px;
+  cursor: pointer; opacity: 0.55;
+}
+.contribute-move-active { opacity: 1; border-color: var(--ink); }
+.contribute-actions { display: flex; gap: 8px; }
+
+/* ── Human participant: the ghost "Join" seat ────────────── */
+
+.avatar-ghost {
+  width: 62px; height: 62px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 2.5px dashed #94a3b8;
+  color: #64748b; cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.avatar-ghost:hover { border-color: #475569; color: #475569; transform: scale(1.06); }
+.avatar-ghost-plus { font-size: 30px; font-weight: 300; line-height: 1; }
+.seat-name-ghost { color: #64748b; font-style: italic; font-weight: 600; }
+
+/* ── Character liveness: expressions, gaze, talk, blink ──── */
+
+/* All face parts animate around their own box centers. */
+.character .char-brows,
+.character .char-brows path,
+.character .char-mouth,
+.character .char-eyes,
+.character .char-pupil,
+.character .char-head-group {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.25s ease;
+}
+
+/* Gaze: pupils shift and the head turns slightly toward the speaker.
+   --gaze-x is -1 | 0 | 1, set from seat geometry. */
+.character .char-pupil { transform: translateX(calc(var(--gaze-x, 0) * 1.6px)); }
+.character .char-head-group {
+  transform: rotate(calc(var(--gaze-x, 0) * 2.5deg));
+  transform-origin: 50% 85%;
+}
+
+/* Expressions (move-driven; heuristic turns stay neutral) */
+.char-excited .char-brows { transform: translateY(-2px); }
+.char-excited .char-mouth { transform: scaleY(1.35); }
+.char-skeptical .char-brows path:first-child { transform: translateY(1.6px) rotate(7deg); }
+.char-skeptical .char-brows path:last-child { transform: translateY(-0.6px) rotate(-4deg); }
+.char-skeptical .char-mouth { transform: scaleY(0.75); }
+.char-engaged .char-mouth { transform: scaleY(1.15); }
+.char-warm .char-brows { transform: translateY(-1px); }
+.char-warm .char-mouth { transform: scaleY(1.25); }
+.char-listening .char-brows { transform: translateY(-1.2px); }
+.char-distracted .char-pupil { transform: translateY(1.8px); }
+
+/* Talking: a subtle mouth loop while speaking (no viseme pretensions). */
+.char-talking .char-mouth { animation: char-talk 0.42s ease-in-out infinite alternate; }
+@keyframes char-talk {
+  from { transform: scaleY(0.7); }
+  to   { transform: scaleY(1.5); }
+}
+
+/* Idle blink — the cheapest "this room is alive" signal there is. */
+.character .char-eyes { animation: char-blink 5.4s ease-in-out infinite; }
+@keyframes char-blink {
+  0%, 95.5%, 100% { transform: scaleY(1); }
+  97.5% { transform: scaleY(0.08); }
+}
+
+/* When someone is speaking, the rest of the room recedes slightly.
+   Applied to the SVG itself — the button's own filter transition (used for
+   the speaker glow) kept overriding a button-level rule. */
+.classroom-live .avatar.idle .character { filter: saturate(0.68) brightness(0.97); transition: filter 0.3s ease; }
+
+/* ── Move badge on speech bubbles (the pedagogy in the moment) ── */
+
+.bubble-move {
+  position: absolute; top: -10px; left: 12px;
+  font-size: 9.5px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.6px;
+  color: #fff; padding: 2px 8px; border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(30, 36, 51, 0.25);
+  white-space: nowrap;
+}
+.presenting .bubble-move { font-size: 12px; top: -12px; }
+
+/* ── Insight flash: the room notices a phenomenon ────────── */
+
+.insight-flash { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
+.insight-flash-veil {
+  position: absolute; inset: 0; border-radius: inherit;
+  background: rgba(18, 22, 34, 1);
+  opacity: 0;
+  animation: flash-veil 1.9s ease-in-out forwards;
+}
+.insight-flash-spot {
+  position: absolute; width: 150px; height: 150px;
+  transform: translate(-50%, -58%);
+  border-radius: 50%;
+  border: 3px solid var(--spot-color, #fff);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--spot-color, #fff) 35%, transparent), 0 0 42px var(--spot-color, #fff);
+  opacity: 0;
+  animation: flash-spot 1.9s ease-in-out forwards;
+}
+.insight-flash-label {
+  position: absolute; left: 50%; top: 40%;
+  transform: translate(-50%, -50%);
+  font-size: 42px; font-weight: 800; letter-spacing: -0.5px;
+  color: #fff; text-align: center; max-width: 80%;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  animation: flash-label 2.3s ease-in-out forwards;
+}
+@keyframes flash-veil {
+  0% { opacity: 0; } 20% { opacity: 0.55; } 72% { opacity: 0.55; } 100% { opacity: 0; }
+}
+@keyframes flash-spot {
+  0% { opacity: 0; scale: 1.35; } 25% { opacity: 1; scale: 1; } 75% { opacity: 1; } 100% { opacity: 0; }
+}
+@keyframes flash-label {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+  14% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  68% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, 210%) scale(0.45); }
+}
+
+/* ── Broadcast layer: presentation mode reads as a show ──── */
+
+/* The footer is rehearsal chrome; everything stage-necessary lives in the
+   PresentationBar. */
+.presenting .controls { display: none; }
+/* Move badges on bubbles replace the analyst legend on stage. */
+.presenting .dyn-legend { display: none; }
+
+/* Projector-sized dialogue */
+.presenting .bubble { font-size: 17.5px; max-width: min(430px, 62cqw); padding: 12px 16px; }
+.presenting .seat-name { font-size: 18px; }
+.presenting .seat-role { font-size: 13px; }
+.presenting .bubble-above { bottom: 84px; }
+.presenting .bubble-below { top: 86px; }
+
+/* Compact workspace: three big counters + a one-line ticker */
+.ws-counters { display: flex; gap: 10px; margin: 14px 0; }
+.ws-counter {
+  flex: 1; text-align: center;
+  background: var(--panel-2, #f5f7fb); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 6px;
+}
+.ws-counter-value { font-size: 34px; font-weight: 800; line-height: 1.1; }
+.ws-counter-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--ink-soft); margin-top: 2px; }
+.ws-ticker {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13px; padding: 9px 11px;
+  background: #fff; border: 1px solid var(--line); border-radius: 10px;
+  animation: chip-in 0.4s ease-out;
+}
+.ws-ticker-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-compact .task-card-title { font-size: 16px; }
+
+/* ── Interaction arc overlay (who addresses whom) ────────── */
+
+.interaction-overlay {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+.arc-cumulative {
+  fill: none;
+  opacity: 0.1; /* history whispers; the current turn's arc is the hero */
+  transition: stroke-width 0.4s ease;
+}
+
+.arc-flash {
+  fill: none;
+  stroke-linecap: round;
+}
+/* Explicit addressing: thick arrowed arc that DRAWS from speaker to
+   addressee as the bubble lands (pathLength=1 → dashoffset 1→0). */
+.arc-hero {
+  stroke-width: 5px;
+  stroke-dasharray: 1;
+  animation: arc-draw 0.45s ease-out forwards;
+}
+/* Inferred addressing: honest, quieter — thinner, no arrowhead, faint fade. */
+.arc-inferred {
+  stroke-width: 3px;
+  animation: arc-flash-in-faint 0.5s ease-out forwards;
+}
+
+@keyframes arc-draw {
+  from { stroke-dashoffset: 1; opacity: 0.95; }
+  to   { stroke-dashoffset: 0; opacity: 0.95; }
+}
+@keyframes arc-flash-in-faint {
+  from { opacity: 0; }
+  to   { opacity: 0.4; }
+}
+
+/* ── Dynamics band ───────────────────────────────────────── */
+
+.dynamics-band {
+  display: flex; gap: 24px;
+  padding: 10px 20px 12px;
+  background: var(--panel); border-top: 1px solid var(--line);
+}
+
+.dyn-section { display: flex; flex-direction: column; }
+
+.dyn-title {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+  color: var(--ink-soft); margin-bottom: 5px;
+}
+
+.dyn-participation { width: 40%; min-width: 320px; gap: 3px; }
+
+.dyn-bar-row { display: flex; align-items: center; gap: 8px; height: 18px; }
+.dyn-bar-name { width: 46px; font-size: 13px; font-weight: 700; }
+.dyn-bar-track {
+  flex: 1; height: 13px;
+  background: #f1f4f8; border-radius: 999px; overflow: hidden;
+}
+.dyn-bar-fill { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
+.dyn-bar-value {
+  width: 36px; font-size: 12px; color: var(--ink-soft);
+  font-variant-numeric: tabular-nums; text-align: right;
+}
+
+/* Climate timeline */
+
+.dyn-timeline { flex: 1; min-width: 0; }
+
+.dyn-ticks {
+  display: flex; align-items: stretch; gap: 2px;
+  height: 30px;
+}
+
+.dyn-tick {
+  flex: 1; min-width: 7px; max-width: 24px;
+  border: none; border-radius: 3px; padding: 0;
+  cursor: pointer;
+  animation: tick-in 0.3s ease-out;
+  transition: transform 0.15s ease;
+}
+.dyn-tick:hover { transform: scaleY(1.15); }
+.dyn-tick-current { outline: 2px solid var(--ink); outline-offset: 1px; }
+.dyn-tick-heuristic { opacity: 0.6; }
+.dyn-tick-phase-start { margin-left: 8px; position: relative; }
+.dyn-tick-phase-start::before {
+  content: ""; position: absolute; left: -5px; top: -3px; bottom: -3px;
+  width: 2px; background: var(--line);
+}
+.dyn-tick-doc { position: relative; }
+.dyn-tick-doc::after {
+  content: ""; position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
+  width: 4px; height: 4px; border-radius: 50%;
+  background: #fff; box-shadow: 0 0 0 1px rgba(30, 36, 51, 0.35);
+}
+
+@keyframes tick-in {
+  from { opacity: 0; transform: scaleY(0.4); }
+  to   { transform: scaleY(1); }
+}
+
+/* Move color scale (moves, not people — see legend) */
+.dyn-move-propose { background: #f59e0b; }
+.dyn-move-build { background: #3b82f6; }
+.dyn-move-challenge { background: #ef4444; }
+.dyn-move-integrate { background: #22c55e; }
+.dyn-move-facilitate { background: #cbd5e1; }
+.dyn-move-verdict { background: #a855f7; }
+
+.dyn-legend {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 6px; font-size: 11px; color: var(--ink-soft);
+}
+.dyn-legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.dyn-legend-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.dyn-legend-note { margin-left: auto; font-style: italic; }
+
+/* Insight chips — the presenter's live cue cards */
+
+.dyn-timeline-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.dyn-timeline-head .dyn-title { margin-bottom: 0; }
+
+.dyn-chip {
+  font-size: 11px; font-weight: 700;
+  padding: 2px 9px; border-radius: 999px;
+  cursor: help; white-space: nowrap;
+  animation: chip-in 0.4s ease-out;
+}
+.dyn-chip-free-rider { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+.dyn-chip-conflict { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+.dyn-chip-convergence { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.dyn-chip-silos { background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; }
+.dyn-chip-false-consensus { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+.dyn-chip-source-ignored { background: #f5f0e1; color: #7c6a2e; border: 1px solid #e6dbb8; }
+.dyn-chip-shared-understanding { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
+
+@keyframes chip-in {
+  from { opacity: 0; transform: scale(0.8); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Presentation-mode scale-up: same information, projector-sized */
+
+.presenting .dynamics-band { padding: 14px 28px 16px; gap: 32px; }
+.presenting .dyn-title { font-size: 13px; }
+.presenting .dyn-bar-row { height: 24px; }
+.presenting .dyn-bar-track { height: 17px; }
+.presenting .dyn-bar-name { font-size: 16px; width: 58px; }
+.presenting .dyn-bar-value { font-size: 14px; width: 42px; }
+.presenting .dyn-ticks { height: 38px; }
+.presenting .dyn-legend { font-size: 13px; }
+.presenting .dyn-chip { font-size: 14px; padding: 3px 12px; }
+
+/* ── Controls ────────────────────────────────────────────── */
+
+.controls {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 20px;
+  background: var(--panel); border-top: 1px solid var(--line);
+}
+
+.btn {
+  font-size: 13px; font-weight: 600;
+  padding: 8px 16px; border-radius: 10px;
+  border: 1.5px solid var(--line); background: var(--panel); color: var(--ink);
+  cursor: pointer; transition: all 0.15s ease;
+}
+.btn:hover:not(:disabled) { border-color: #c3c9d6; background: #f8fafc; }
+.btn:disabled { opacity: 0.45; cursor: default; }
+
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #4338ca; border-color: #4338ca; }
+
+.btn-active { background: #eef2ff; border-color: var(--accent); color: var(--accent); }
+
+.controls-divider { width: 1px; height: 24px; background: var(--line); }
+.controls-spacer { flex: 1; }
+
+.speed-group {
+  display: flex; border: 1.5px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+.speed-btn {
+  font-size: 12px; font-weight: 600; padding: 7px 13px;
+  border: none; background: var(--panel); color: var(--ink-soft); cursor: pointer;
+}
+.speed-btn + .speed-btn { border-left: 1.5px solid var(--line); }
+.speed-btn-active { background: var(--accent); color: #fff; }
+
+.turn-counter { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+.control-label {
+  font-size: 12px; font-weight: 600; color: var(--ink-soft);
+  margin-right: -2px;
+}
+
+.session-picker {
+  font-size: 12px; font-weight: 600; color: var(--ink);
+  padding: 6px 10px; border-radius: 10px; border: 1.5px solid var(--line);
+  background: var(--panel); max-width: 220px;
+}
+.session-picker:disabled { opacity: 0.6; }
+
+.session-error { color: #b91c1c; cursor: help; }
+
+.cost-counter {
+  font-size: 13px; font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  background: #f8fafc; border: 1.5px solid var(--line); border-radius: 10px;
+  padding: 6px 12px;
+}

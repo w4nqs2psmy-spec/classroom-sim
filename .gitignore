@@ -1,0 +1,8 @@
+.env
+node_modules/
+*.log
+workspace.json
+logs/
+tasks/
+ui/dist/
+.DS_Store
