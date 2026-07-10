@@ -95,3 +95,37 @@ visible on a projector.
 - `npm run ui` — Vite dev server (UI at :5173).
 - `npx vite build --config ui/vite.config.ts` — production build gate (remove
   `ui/dist` after checking).
+
+## Public deployment (GitHub Pages)
+
+Live at **https://w4nqs2psmy-spec.github.io/classroom-sim/** — repo
+`w4nqs2psmy-spec/classroom-sim`, served from the `gh-pages` branch (path `/`),
+auto-detected/enabled by GitHub on first push of that branch.
+
+**Static-mode design** (`vite.config.ts` has `base: "./"`; `sessionLoader.ts`
+has try/catch fallbacks in `listSessions()`/`fetchSession()`): on a static host
+with no dev middleware, session listing/loading falls back to the one curated
+log shipped as a static file at `ui/public/sessions/` (see `CURATED_SESSION` in
+`sessionLoader.ts`), and `postAgentReply` (live interjection replies) gets a
+fast 404 → returns `null` → the caller uses the per-agent i18n fallback line.
+Both paths were verified end-to-end via `vite preview` (serves `dist/` with NO
+dev middleware — the closest local approximation of Pages) before every deploy.
+
+**To redeploy after changes:**
+```sh
+npx vite build --config ui/vite.config.ts
+# from a scratch/temp dir, NOT the main worktree (avoids touching your branch):
+git worktree add --detach /tmp/gh-pages-deploy
+cd /tmp/gh-pages-deploy && git checkout --orphan gh-pages && git rm -rf . >/dev/null
+cp -r <repo>/ui/dist/. .
+git add -A && git commit -m "Deploy: <what changed>"
+git push origin gh-pages   # history accumulates turn by turn; no --force needed
+cd - && git worktree remove --force /tmp/gh-pages-deploy
+```
+Propagation is usually near-instant but can take a minute or two; re-check with
+`curl -s -o /dev/null -w "%{http_code}" https://w4nqs2psmy-spec.github.io/classroom-sim/`.
+
+**Public-repo content note:** the repo includes the Leppilampi cooperative-
+leadership article excerpt (translated, `docs/` + `ui/src/source-docs/`) and
+one real AI session log (`logs/session-2026-07-03...` → shipped at
+`ui/public/sessions/`) — both by explicit user decision when going public.
