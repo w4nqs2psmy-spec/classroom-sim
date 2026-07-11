@@ -1,7 +1,6 @@
 import { IDLE_PACES } from "./downtime";
 import { useT, type Lang } from "./i18n";
 import { CURATED_SESSION, type SessionSummary } from "./sessionLoader";
-import type { CostTotals } from "./store";
 
 const SPEEDS = [
   { label: "Slow", ms: 7000 },
@@ -20,8 +19,6 @@ interface Props {
   speedMs: number;
   atEnd: boolean;
   idlePaceMs: number;
-  totalCost: CostTotals;
-  hasUnknownCost: boolean;
   scenarios: { id: string; label: string }[];
   tasks: { id: string; label: string }[];
   sessions: SessionSummary[];
@@ -187,12 +184,6 @@ export function Controls(p: Props) {
       </div>
 
       {p.mode === "task" && <span className="turn-counter">{t.turnCounter(p.turn + 1, p.totalTurns)}</span>}
-
-      <span className="cost-counter" title={t.costTitle(p.totalCost.measured, p.totalCost.estimated, p.hasUnknownCost)}>
-        💰 {p.totalCost.estimated > 0 ? "~" : ""}$
-        {(p.totalCost.measured + p.totalCost.estimated).toFixed(4)}
-        {p.hasUnknownCost && "*"}
-      </span>
     </footer>
   );
 }

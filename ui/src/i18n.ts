@@ -61,7 +61,6 @@ export interface Strings {
   present: string;
   presentTitle: string;
   turnCounter: (turn: number, total: number) => string;
-  costTitle: (measured: number, estimated: number, unknown: boolean) => string;
 
   // Workspace panel + source doc
   sharedWorkspace: string;
@@ -205,9 +204,6 @@ export const STRINGS: Record<Lang, Strings> = {
     present: "🖥 Present",
     presentTitle: "Enter presentation mode for a lecture or workshop",
     turnCounter: (t, total) => `Turn ${t} / ${total}`,
-    costTitle: (m, e, u) =>
-      `Measured (from session logs): $${m.toFixed(4)} · Estimated (scenarios & downtime): ~$${e.toFixed(4)}` +
-      (u ? " · some log entries had no recorded cost" : ""),
 
     sharedWorkspace: "Shared workspace",
     statusInProgress: "In progress",
@@ -323,9 +319,6 @@ export const STRINGS: Record<Lang, Strings> = {
     present: "🖥 Esitys",
     presentTitle: "Siirry esitystilaan luentoa tai työpajaa varten",
     turnCounter: (t, total) => `Vuoro ${t} / ${total}`,
-    costTitle: (m, e, u) =>
-      `Mitattu (istuntolokeista): $${m.toFixed(4)} · Arvioitu (skenaariot & vapaa-aika): ~$${e.toFixed(4)}` +
-      (u ? " · joillakin lokiriveillä ei ollut kirjattua kustannusta" : ""),
 
     sharedWorkspace: "Yhteinen työtila",
     statusInProgress: "Kesken",

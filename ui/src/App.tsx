@@ -82,7 +82,7 @@ function mergeContributions(
 
 function AppInner() {
   const { state, dispatch } = useSim();
-  const { mode, turnIndex, playing, speedMs, idlePaceMs, selected, totalCost, downtimeHistory } = state;
+  const { mode, turnIndex, playing, speedMs, idlePaceMs, selected, downtimeHistory } = state;
 
   // UI language — a display preference like dynamicsVisible; persisted, never
   // resets the sim. Finnish task content falls back to English where absent.
@@ -149,7 +149,6 @@ function AppInner() {
       // any path can leave turnIndex past the new dataset's length (datasets
       // differ in turn count), making turns[turnIndex] undefined.
       setSessionError(null);
-      setHasUnknownCost(false);
       lastCostedTurnRef.current = -1;
       setContributions([]); // each task is a fresh discussion; you keep your chair
       firedInsightsRef.current = new Set();
@@ -222,10 +221,9 @@ function AppInner() {
   // Live cost of each task turn as it's revealed. Real sessions carry their
   // own measured costUSD per turn (number or null-for-unknown); scripted
   // content (costUSD left undefined) falls back to the mock estimator. The
-  // two are accumulated SEPARATELY (see CostTotals in store.tsx) so an
-  // estimate is never displayed as a measured number, and an unknown real
-  // cost is never silently coerced to 0.
-  const [hasUnknownCost, setHasUnknownCost] = useState(false);
+  // two are accumulated SEPARATELY into store state (see CostTotals in
+  // store.tsx) so an estimate is never conflated with a measured number —
+  // kept as dev-only bookkeeping even though no UI currently displays it.
   useEffect(() => {
     // No booking while a session load is in flight: between selection and
     // the async swap, the OLD dataset's turns are still mounted and booking
@@ -239,9 +237,7 @@ function AppInner() {
       const t = turns[i];
       if (t.costUSD === undefined) {
         estimated += estimateTurnCost(t);
-      } else if (t.costUSD === null) {
-        setHasUnknownCost(true);
-      } else {
+      } else if (t.costUSD !== null) {
         measured += t.costUSD;
       }
     }
@@ -342,7 +338,6 @@ function AppInner() {
         return;
       }
       setSessionError(null);
-      setHasUnknownCost(false);
       lastCostedTurnRef.current = -1;
       setContributions([]);
       firedInsightsRef.current = new Set();
@@ -634,8 +629,6 @@ function AppInner() {
           speedMs={speedMs}
           atEnd={atEnd}
           idlePaceMs={idlePaceMs}
-          totalCost={totalCost}
-          hasUnknownCost={hasUnknownCost}
           scenarios={SCENARIOS.map((s) => ({ id: s.id, label: s.label }))}
           tasks={TASK_LIBRARY.map((tk) => ({ id: tk.id, label: resolveTask(tk, lang).label }))}
           sessions={sessions}
@@ -657,7 +650,6 @@ function AppInner() {
             // A live session is not a picker dataset, so restarting leaves it.
             endLive();
             setLiveUnavailable(false);
-            setHasUnknownCost(false);
             setContributions([]);
             firedInsightsRef.current = new Set();
             setFlashInsight(null);
