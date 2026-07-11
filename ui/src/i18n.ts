@@ -120,6 +120,19 @@ export interface Strings {
   contributeGroup: string;
   thinking: string;
   liveFallback: Record<string, string>;
+
+  // Live session mode (dev-only): composer + badge + controls + status
+  liveComposeTitle: string;
+  liveComposeHint: string;
+  livePlaceholder: string;
+  liveStartBtn: string;
+  liveDevOnly: string;
+  liveBadge: (title: string) => string;
+  liveBtn: string;
+  liveBtnTitle: string;
+  liveOption: string;
+  liveFailed: string;
+  liveGenerating: string;
 }
 
 const PHASE_EN = { ideation: "Ideation", evaluation: "Evaluation", synthesis: "Synthesis" };
@@ -251,6 +264,18 @@ export const STRINGS: Record<Lang, Strings> = {
       Sami: "Hm. That deserves a real answer, not a quick one.",
       Leo: "That's worth sitting with — let me come back to you on it.",
     },
+
+    liveComposeTitle: "🎤 Propose a live task",
+    liveComposeHint: "the group works it live, for real",
+    livePlaceholder: "Describe a task for the group to work on…  (Enter to start, Esc to cancel)",
+    liveStartBtn: "Start live",
+    liveDevOnly: "Live mode makes real API calls — dev server only.",
+    liveBadge: (title) => `live — ${title}`,
+    liveBtn: "🎤 Live",
+    liveBtnTitle: "Propose a free-text task the group works live",
+    liveOption: "Live session (propose a task)",
+    liveFailed: "⚠ live session unavailable — dev server only",
+    liveGenerating: "generating…",
   },
 
   fi: {
@@ -357,6 +382,18 @@ export const STRINGS: Record<Lang, Strings> = {
       Sami: "Hmm. Tuo ansaitsee kunnon vastauksen, ei hätäistä.",
       Leo: "Tuota kannattaa pohtia — palaan siihen sinulle.",
     },
+
+    liveComposeTitle: "🎤 Ehdota live-tehtävä",
+    liveComposeHint: "ryhmä työstää sen livenä, oikeasti",
+    livePlaceholder: "Kuvaile tehtävä, jota ryhmä työstää…  (Enter aloittaa, Esc peruu)",
+    liveStartBtn: "Aloita live",
+    liveDevOnly: "Live-tila tekee oikeita API-kutsuja — vain dev-palvelin.",
+    liveBadge: (title) => `live — ${title}`,
+    liveBtn: "🎤 Live",
+    liveBtnTitle: "Ehdota vapaa tehtävä, jonka ryhmä työstää livenä",
+    liveOption: "Live-istunto (ehdota tehtävä)",
+    liveFailed: "⚠ live-istunto ei käytettävissä — vain dev-palvelin",
+    liveGenerating: "luodaan…",
   },
 };
 
