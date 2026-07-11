@@ -4,7 +4,7 @@ import { Classroom } from "./Classroom";
 import { makeEnvelope, useCommandBus } from "./commands";
 import { ContributeInput } from "./ContributeInput";
 import { Controls } from "./Controls";
-import { estimateTurnCost, STUDENTS, type Move, type TurnView } from "./data";
+import { estimateTurnCost, PERSONAS, STUDENTS, type Move, type TurnView } from "./data";
 import type { AmbientTick, MeaningfulMoment } from "./downtime";
 import { computeDynamics, type Insight } from "./dynamics";
 import { LangProvider, STRINGS, type Lang } from "./i18n";
@@ -30,7 +30,30 @@ const EMPTY_AMBIENT: Record<string, AmbientTick> = {};
 // never stalls waiting on model latency (generation ~3 s < default speed 7 s).
 const LIVE_BUFFER_AHEAD = 2;
 
+// Stage-1 interjection reaction chain (see the CONTRIBUTE handler below): how
+// many extra students react, in sequence, after the agent the presenter
+// directly addressed. Keep this small — each extra reaction is a real model
+// call, adding both latency and cost to a live interjection.
+const MAX_REACTION_TURNS = 2;
+
 const HUMAN_ROSTER = [...STUDENTS, HUMAN] as const;
+
+// Reaction-chain speaker pick: weighted by talkativeness (same spirit as
+// src/loop.ts's pickSpeaker — frozen and Node-only, so not importable here),
+// excluding whoever is passed in `exclude` (the directly-addressed agent,
+// always; the previous reactor, so the same voice never repeats back-to-back).
+function pickReactor(exclude: ReadonlySet<string>): string | null {
+  const candidates = STUDENTS.filter((n) => !exclude.has(n));
+  if (candidates.length === 0) return null;
+  const weights = candidates.map((n) => PERSONAS[n].talkativeness);
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < candidates.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return candidates[i];
+  }
+  return candidates[candidates.length - 1];
+}
 
 interface ActiveSession {
   file: string;
@@ -447,8 +470,17 @@ function AppInner() {
       const humanIndex = turnIndex + 1;
       dispatch({ type: "SEEK_TURN", index: humanIndex, maxIndex: humanIndex }); // reveal it
 
-      // If you addressed a specific agent, it generates a REAL reply. The
-      // transcript is the recent visible discussion plus what you just said.
+      // If you addressed a specific agent, it generates a REAL reply — and
+      // then a short reaction chain (MAX_REACTION_TURNS other students, in
+      // character, one at a time) so the interjection reads as a moment of
+      // group conversation rather than a single Q&A exchange. The whole
+      // thing is sequential: each call awaits the previous one and includes
+      // its reply in the transcript, so reactions actually build on each
+      // other instead of all answering the human in parallel. Every call
+      // goes through the same postAgentReply → setContributions → SEEK_TURN
+      // path as the original single reply; the first null (offline, 404 on
+      // the static Pages build, refusal, timeout) stops the chain right
+      // there and the script continues — no turn is ever fabricated.
       if (targetAgent && STUDENTS.includes(targetAgent as (typeof STUDENTS)[number])) {
         setThinkingAgent(targetAgent);
         const recent = turns
@@ -456,24 +488,51 @@ function AppInner() {
           .map((tn) => `${tn.speaker}: ${tn.said}`)
           .join("\n");
         const transcript = `${recent}\n${HUMAN}: ${text}`;
-        postAgentReply({
-          agentName: targetAgent,
-          humanText: text,
-          transcript,
-          taskText: `${taskInfo.title}. ${taskInfo.deliverable}`,
-          lang,
-        })
-          .then((result) => {
+        const taskText = `${taskInfo.title}. ${taskInfo.deliverable}`;
+        let revealIndex = humanIndex;
+
+        (async () => {
+          try {
+            const result = await postAgentReply({ agentName: targetAgent, humanText: text, transcript, taskText, lang });
             // Real reply carries measured costUSD (the cost effect books it as
             // turnIndex reaches it); a fallback line is free. No dialogueMove →
             // heuristic/faded tick, honest that this turn is dynamic.
             const say = result?.say ?? t.liveFallback[targetAgent] ?? "…";
             const replyTurn: TurnView = { speaker: targetAgent, phase, said: say, costUSD: result?.costUSD ?? 0 };
             setContributions((prev) => [...prev, { afterAuthored: anchor, order: contribOrderRef.current++, turn: replyTurn }]);
-            const replyIndex = humanIndex + 1;
-            dispatch({ type: "SEEK_TURN", index: replyIndex, maxIndex: replyIndex });
-          })
-          .finally(() => setThinkingAgent(null));
+            revealIndex += 1;
+            dispatch({ type: "SEEK_TURN", index: revealIndex, maxIndex: revealIndex });
+            if (!result) return; // offline/refused/timeout — the chain would only fail the same way
+
+            let runningTranscript = `${transcript}\n${targetAgent}: ${say}`;
+            let lastLine = say;
+            const spoken = new Set<string>([targetAgent]); // never the addressed agent again
+            for (let i = 0; i < MAX_REACTION_TURNS; i++) {
+              const reactor = pickReactor(spoken);
+              if (!reactor) break; // no eligible peer left (can't happen with 5 students)
+              setThinkingAgent(reactor);
+              const reaction = await postAgentReply({
+                agentName: reactor,
+                humanText: lastLine,
+                transcript: runningTranscript,
+                taskText,
+                lang,
+              });
+              if (!reaction) break; // degrade cleanly — stop, don't fabricate a turn
+              const reactionTurn: TurnView = { speaker: reactor, phase, said: reaction.say, costUSD: reaction.costUSD };
+              setContributions((prev) => [...prev, { afterAuthored: anchor, order: contribOrderRef.current++, turn: reactionTurn }]);
+              revealIndex += 1;
+              dispatch({ type: "SEEK_TURN", index: revealIndex, maxIndex: revealIndex });
+              runningTranscript += `\n${reactor}: ${reaction.say}`;
+              lastLine = reaction.say;
+              spoken.clear();
+              spoken.add(targetAgent);
+              spoken.add(reactor); // excluded next round too — no back-to-back repeat
+            }
+          } finally {
+            setThinkingAgent(null);
+          }
+        })();
       }
       return true;
     },
