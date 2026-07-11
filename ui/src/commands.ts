@@ -18,7 +18,11 @@ export type SimCommand =
   // move (ground truth, so its timeline tick is `tagged`). `targetAgent`, when
   // set, is the agent the human addresses — that agent generates a real live
   // reply. The same envelope is what a future audience-join surface posts.
-  | { type: "CONTRIBUTE"; text: string; move?: string; targetAgent?: string | null };
+  | { type: "CONTRIBUTE"; text: string; move?: string; targetAgent?: string | null }
+  // Propose a free-text task the five agents work LIVE (real generation, dev
+  // server only). `maxRounds` is optional (the UI omits it — fixed at 23
+  // server-side); it's here so a future surface could steer the length.
+  | { type: "START_LIVE"; taskText: string; maxRounds?: number };
 
 export type CommandSource = "presenter-hotkey" | "presenter-dock" | "audience" | "system";
 
@@ -54,6 +58,8 @@ export interface CommandHandlers {
   /** Inject a human contribution; returns false if not currently possible
    *  (not in task mode) so networked callers get a clear result. */
   contribute: (text: string, move?: string, targetAgent?: string | null) => boolean;
+  /** Start a live session from free-text task; returns false if unavailable. */
+  startLive: (taskText: string, maxRounds?: number) => boolean;
 }
 
 function isEnvelope(x: unknown): x is CommandEnvelope {
@@ -101,6 +107,11 @@ export function useCommandBus(handlers: CommandHandlers): DispatchCommand {
       case "CONTRIBUTE": {
         if (typeof c.text !== "string" || !c.text.trim()) return { ok: false, reason: "empty contribution" };
         return h.contribute(c.text.trim(), c.move, c.targetAgent) ? { ok: true } : { ok: false, reason: "cannot contribute now" };
+      }
+      case "START_LIVE": {
+        if (typeof c.taskText !== "string" || !c.taskText.trim()) return { ok: false, reason: "empty task" };
+        if (c.maxRounds !== undefined && (!Number.isFinite(c.maxRounds) || c.maxRounds < 1)) return { ok: false, reason: "invalid maxRounds" };
+        return h.startLive(c.taskText.trim(), c.maxRounds) ? { ok: true } : { ok: false, reason: "cannot start live now" };
       }
       default:
         return { ok: false, reason: "unknown command type" };

@@ -115,6 +115,11 @@ body {
 .data-source-badge.real {
   color: #15803d; background: #dcfce7; border: 1px solid #bbf7d0;
 }
+/* Live session — real generation happening now. A distinct violet/rose so the
+   audience reads it as neither the scripted (amber) nor replayed (green) source. */
+.data-source-badge.live {
+  color: #a21caf; background: #fae8ff; border: 1px solid #f0abfc;
+}
 
 /* ── Downtime badge ──────────────────────────────────────── */
 

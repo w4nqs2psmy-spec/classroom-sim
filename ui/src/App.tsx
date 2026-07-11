@@ -9,6 +9,8 @@ import type { AmbientTick, MeaningfulMoment } from "./downtime";
 import { computeDynamics, type Insight } from "./dynamics";
 import { LangProvider, STRINGS, type Lang } from "./i18n";
 import { postAgentReply } from "./liveReply";
+import { LiveTaskInput } from "./LiveTaskInput";
+import { endLiveSession, nextLiveTurn, startLiveSession } from "./liveSession";
 import { DynamicsBand } from "./DynamicsBand";
 import { DowntimeBadge } from "./ModeIndicator";
 import { PhaseIndicator } from "./PhaseIndicator";
@@ -24,6 +26,10 @@ import { WorkspacePanel } from "./WorkspacePanel";
 
 const EMPTY_AMBIENT: Record<string, AmbientTick> = {};
 
+// How many live turns to keep generated ahead of the revealed turn, so autoplay
+// never stalls waiting on model latency (generation ~3 s < default speed 7 s).
+const LIVE_BUFFER_AHEAD = 2;
+
 const HUMAN_ROSTER = [...STUDENTS, HUMAN] as const;
 
 interface ActiveSession {
@@ -31,6 +37,18 @@ interface ActiveSession {
   turns: TurnView[];
   task: { title: string; deliverable: string };
   isComplete: boolean;
+}
+
+// A live session: turns are generated server-side one at a time and appended
+// here as they arrive (the generation driver in AppInner keeps a small buffer
+// ahead of the revealed turn). `done` flips when the server reaches the round
+// cap. Same category as ActiveSession — data-source selection, not sim state.
+interface LiveActive {
+  sessionId: string;
+  turns: TurnView[];
+  task: { title: string; deliverable: string };
+  done: boolean;
+  costUSD: number;
 }
 
 // A human turn spliced into the authored script, anchored to the authored
@@ -96,6 +114,26 @@ function AppInner() {
   const [sessionLoading, setSessionLoading] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
 
+  // ── Live session (dev-only real generation) ────────────────────────────
+  const [liveState, setLiveState] = useState<LiveActive | null>(null);
+  const [liveComposeOpen, setLiveComposeOpen] = useState(false);
+  const [liveGenerating, setLiveGenerating] = useState(false); // start or a turn is in flight
+  const [liveUnavailable, setLiveUnavailable] = useState(false); // start returned null (static host)
+  // Teardown reads the id from a ref so callbacks needn't depend on liveState.
+  const liveSessionIdRef = useRef<string | null>(null);
+  const liveGenRef = useRef(false); // one /api/live/next in flight at a time
+  const liveAutoPlayedRef = useRef(false); // autoplay kicked off once per live session
+
+  const endLive = useCallback(() => {
+    const sid = liveSessionIdRef.current;
+    if (sid) endLiveSession(sid);
+    liveSessionIdRef.current = null;
+    liveGenRef.current = false;
+    liveAutoPlayedRef.current = false;
+    setLiveState(null);
+    setLiveGenerating(false);
+  }, []);
+
   useEffect(() => {
     listSessions()
       // The picker shows only the curated showcase log; the rest are archive
@@ -116,6 +154,8 @@ function AppInner() {
       setContributions([]); // each task is a fresh discussion; you keep your chair
       firedInsightsRef.current = new Set();
       setFlashInsight(null);
+      endLive(); // switching to a scripted/real dataset ends any live session
+      setLiveUnavailable(false);
       dispatch({ type: "START_TASK", keepPlaying: opts?.keepPlaying });
 
       if (value.startsWith("task:")) {
@@ -141,7 +181,7 @@ function AppInner() {
         .catch((err) => setSessionError(err instanceof Error ? err.message : String(err)))
         .finally(() => setSessionLoading(false));
     },
-    [dispatch],
+    [dispatch, endLive],
   );
 
   const scenario = SCENARIOS.find((s) => s.id === scenarioId) ?? SCENARIOS[0];
@@ -149,8 +189,10 @@ function AppInner() {
   // Resolve the active task's user-facing content for the current language
   // (falls back to English where no Finnish overlay exists).
   const resolvedLibraryTask = libraryTask ? resolveTask(libraryTask, lang) : null;
-  const authoredTurns = activeSession?.turns ?? resolvedLibraryTask?.turns ?? scenario.turns;
-  const taskInfo = activeSession?.task ?? resolvedLibraryTask?.task ?? scenario.task;
+  // Live session takes priority as the active dataset when present; its turns
+  // array grows as the generation driver appends.
+  const authoredTurns = liveState?.turns ?? activeSession?.turns ?? resolvedLibraryTask?.turns ?? scenario.turns;
+  const taskInfo = liveState?.task ?? activeSession?.task ?? resolvedLibraryTask?.task ?? scenario.task;
 
   // ── Human participant ──────────────────────────────────────────────────
   // Contributions are spliced into the authored script at runtime, never
@@ -258,7 +300,7 @@ function AppInner() {
   // Pedagogical dynamics: a pure function of the visible prefix, same
   // derivation pattern as workspaceEntries above. Task-mode only.
   const [dynamicsVisible, setDynamicsVisible] = useState(true);
-  const hasSourceDocument = !activeSession && Boolean(resolvedLibraryTask?.sourceDocument);
+  const hasSourceDocument = !activeSession && !liveState && Boolean(resolvedLibraryTask?.sourceDocument);
   const dynamics = useMemo(
     () =>
       mode === "task"
@@ -276,6 +318,92 @@ function AppInner() {
   useEffect(() => {
     if (isPresenting && mode !== "task") exitPresentation();
   }, [isPresenting, mode, exitPresentation]);
+
+  // ── Live session ───────────────────────────────────────────────────────
+  // Kick off a live session: create it server-side, fetch the first turn, then
+  // swap it in as the active dataset. Same reset discipline as a dataset switch.
+  const startLiveSessionFlow = useCallback(
+    async (taskText: string) => {
+      endLive();
+      setLiveUnavailable(false);
+      setLiveGenerating(true);
+      const started = await startLiveSession({ taskText, lang });
+      if (!started) {
+        // No dev middleware (static Pages build) or a start failure → degrade.
+        setLiveGenerating(false);
+        setLiveUnavailable(true);
+        return;
+      }
+      const first = await nextLiveTurn(started.sessionId);
+      if (!first || !first.turn) {
+        endLiveSession(started.sessionId);
+        setLiveGenerating(false);
+        setLiveUnavailable(true);
+        return;
+      }
+      setSessionError(null);
+      setHasUnknownCost(false);
+      lastCostedTurnRef.current = -1;
+      setContributions([]);
+      firedInsightsRef.current = new Set();
+      setFlashInsight(null);
+      setActiveSession(null);
+      setLibraryTaskId(null);
+      liveSessionIdRef.current = started.sessionId;
+      liveAutoPlayedRef.current = false;
+      setLiveState({
+        sessionId: started.sessionId,
+        turns: [first.turn],
+        task: started.task,
+        done: first.done,
+        costUSD: first.costUSD,
+      });
+      dispatch({ type: "START_TASK", keepPlaying: false });
+      setLiveGenerating(false);
+    },
+    [lang, endLive, dispatch],
+  );
+
+  // Generation driver: keep LIVE_BUFFER_AHEAD turns generated past the revealed
+  // index. Re-runs when a turn is appended (liveState changes) or autoplay
+  // advances turnIndex; one /api/live/next in flight at a time (liveGenRef).
+  useEffect(() => {
+    if (mode !== "task" || !liveState || liveState.done) return;
+    if (liveState.turns.length - 1 >= turnIndex + LIVE_BUFFER_AHEAD) return; // buffer full
+    if (liveGenRef.current) return;
+    const sid = liveState.sessionId;
+    liveGenRef.current = true;
+    setLiveGenerating(true);
+    nextLiveTurn(sid)
+      .then((res) => {
+        setLiveState((prev) => {
+          if (!prev || prev.sessionId !== sid) return prev; // session changed mid-flight
+          if (!res) return { ...prev, done: true }; // failure → stop the loop cleanly
+          if (res.turn) return { ...prev, turns: [...prev.turns, res.turn], done: res.done, costUSD: res.costUSD };
+          return { ...prev, done: true, costUSD: res.costUSD };
+        });
+      })
+      .finally(() => {
+        liveGenRef.current = false;
+        setLiveGenerating(false);
+      });
+  }, [mode, liveState, turnIndex]);
+
+  // Auto-start autoplay once a live session has a little buffer, so the reveal
+  // begins on its own; after that the presenter controls play/pause.
+  useEffect(() => {
+    if (mode !== "task" || !liveState || liveAutoPlayedRef.current) return;
+    if (liveState.turns.length >= 3 && !playing) {
+      liveAutoPlayedRef.current = true;
+      dispatch({ type: "TOGGLE_PLAY" });
+    }
+  }, [mode, liveState, playing, dispatch]);
+
+  const openLive = useCallback(() => {
+    if (playing) dispatch({ type: "TOGGLE_PLAY" }); // pause so the composer holds
+    setLiveUnavailable(false);
+    setLiveComposeOpen(true);
+  }, [playing, dispatch]);
 
   // ── Command layer ─────────────────────────────────────────────────────
   // Single dispatch path for every steering surface (hotkeys, dock, and a
@@ -354,6 +482,10 @@ function AppInner() {
       }
       return true;
     },
+    startLive: (taskText) => {
+      void startLiveSessionFlow(taskText);
+      return true;
+    },
   });
 
   // Contribute overlay (local UI state). Opening pauses autoplay so your
@@ -416,11 +548,13 @@ function AppInner() {
         setDockVisible((v) => !v);
       } else if (e.key === "c" || e.key === "C") {
         openContribute();
+      } else if (e.key === "l" || e.key === "L") {
+        openLive();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isPresenting, playing, dispatchCommand, openContribute]);
+  }, [isPresenting, playing, dispatchCommand, openContribute, openLive]);
 
   const rootClassName = [
     "app",
@@ -437,12 +571,14 @@ function AppInner() {
         <header className="topbar">
           <h1 className="topbar-title">{t.appTitle}</h1>
           {mode === "task" ? <PhaseIndicator current={current.phase} /> : <DowntimeBadge />}
-          <span className={`data-source-badge ${activeSession ? "real" : "placeholder"}`}>
-            {activeSession
-              ? t.badgeReal(activeSession.file)
-              : resolvedLibraryTask
-                ? t.badgeTask(resolvedLibraryTask.label)
-                : t.badgeScenario(scenario.label)}
+          <span className={`data-source-badge ${liveState ? "live" : activeSession ? "real" : "placeholder"}`}>
+            {liveState
+              ? t.liveBadge(taskInfo.title)
+              : activeSession
+                ? t.badgeReal(activeSession.file)
+                : resolvedLibraryTask
+                  ? t.badgeTask(resolvedLibraryTask.label)
+                  : t.badgeScenario(scenario.label)}
           </span>
         </header>
 
@@ -468,7 +604,7 @@ function AppInner() {
           />
           <WorkspacePanel
             task={mode === "task" ? taskInfo : null}
-            sourceDocument={mode === "task" && !activeSession ? (resolvedLibraryTask?.sourceDocument ?? null) : null}
+            sourceDocument={mode === "task" && !activeSession && !liveState ? (resolvedLibraryTask?.sourceDocument ?? null) : null}
             entries={workspaceEntries}
             status={status}
             compact={isPresenting}
@@ -513,8 +649,14 @@ function AppInner() {
           onSelectDataset={handleSelectDataset}
           onToggleDock={() => setDockVisible((v) => !v)}
           onContribute={openContribute}
+          onLive={openLive}
+          liveGenerating={liveGenerating}
+          liveUnavailable={liveUnavailable}
           onStartTask={() => {
             // Starts (or restarts) whichever dataset is currently selected.
+            // A live session is not a picker dataset, so restarting leaves it.
+            endLive();
+            setLiveUnavailable(false);
             setHasUnknownCost(false);
             setContributions([]);
             firedInsightsRef.current = new Set();
@@ -522,7 +664,10 @@ function AppInner() {
             dispatch({ type: "START_TASK" });
             lastCostedTurnRef.current = -1;
           }}
-          onBackToDowntime={() => dispatch({ type: "BACK_TO_DOWNTIME" })}
+          onBackToDowntime={() => {
+            endLive();
+            dispatch({ type: "BACK_TO_DOWNTIME" });
+          }}
           onNextTurn={() => dispatch({ type: "NEXT_TURN", maxIndex: turns.length - 1 })}
           onTogglePlay={() => dispatch({ type: "TOGGLE_PLAY" })}
           onSpeedChange={(ms) => dispatch({ type: "SET_SPEED", ms })}
@@ -564,6 +709,16 @@ function AppInner() {
               setContributeOpen(false);
             }}
             onCancel={() => setContributeOpen(false)}
+          />
+        )}
+
+        {liveComposeOpen && (
+          <LiveTaskInput
+            onSubmit={(taskText) => {
+              dispatchCommand(makeEnvelope({ type: "START_LIVE", taskText }, "presenter-dock"));
+              setLiveComposeOpen(false);
+            }}
+            onCancel={() => setLiveComposeOpen(false)}
           />
         )}
       </div>

@@ -31,6 +31,9 @@ interface Props {
   onSelectDataset: (value: string) => void;
   onToggleDock: () => void;
   onContribute: () => void;
+  onLive: () => void;
+  liveGenerating: boolean;
+  liveUnavailable: boolean;
   onStartTask: () => void;
   onBackToDowntime: () => void;
   onNextTurn: () => void;
@@ -94,6 +97,16 @@ export function Controls(p: Props) {
       {p.sessionError && (
         <span className="control-label session-error" title={p.sessionError}>
           {t.loadFailed}
+        </span>
+      )}
+
+      <button className="btn" onClick={p.onLive} title={t.liveBtnTitle}>
+        {t.liveBtn}
+      </button>
+      {p.liveGenerating && <span className="control-label">{t.liveGenerating}</span>}
+      {p.liveUnavailable && (
+        <span className="control-label session-error" title={t.liveDevOnly}>
+          {t.liveFailed}
         </span>
       )}
 
