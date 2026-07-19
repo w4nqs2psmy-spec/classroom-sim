@@ -12,6 +12,9 @@ import { postAgentReply } from "./liveReply";
 import { LiveTaskInput } from "./LiveTaskInput";
 import { endLiveSession, nextLiveTurn, startLiveSession } from "./liveSession";
 import { DynamicsBand } from "./DynamicsBand";
+import { JigsawClassroom } from "./JigsawClassroom";
+import { JigsawPhaseIndicator } from "./JigsawPhaseIndicator";
+import { JigsawSidePanel } from "./JigsawSidePanel";
 import { DowntimeBadge } from "./ModeIndicator";
 import { PhaseIndicator } from "./PhaseIndicator";
 import { PresentationBar } from "./PresentationBar";
@@ -215,6 +218,10 @@ function AppInner() {
   // array grows as the generation driver appends.
   const authoredTurns = liveState?.turns ?? activeSession?.turns ?? resolvedLibraryTask?.turns ?? scenario.turns;
   const taskInfo = liveState?.task ?? activeSession?.task ?? resolvedLibraryTask?.task ?? scenario.task;
+  // Swaps Classroom/WorkspacePanel/PhaseIndicator for the two-group jigsaw
+  // layout below. `layout` is structural (not language-dependent), so it's
+  // read off the raw libraryTask, not the language-resolved one.
+  const isJigsaw = mode === "task" && libraryTask?.layout === "jigsaw";
 
   // ── Human participant ──────────────────────────────────────────────────
   // Contributions are spliced into the authored script at runtime, never
@@ -322,13 +329,13 @@ function AppInner() {
   const hasSourceDocument = !activeSession && !liveState && Boolean(resolvedLibraryTask?.sourceDocument);
   const dynamics = useMemo(
     () =>
-      mode === "task"
+      mode === "task" && !isJigsaw
         ? computeDynamics(turns.slice(0, turnIndex + 1), {
             hasSourceDocument,
             roster: hasJoined ? HUMAN_ROSTER : undefined,
           })
         : null,
-    [mode, turns, turnIndex, hasSourceDocument, hasJoined],
+    [mode, isJigsaw, turns, turnIndex, hasSourceDocument, hasJoined],
   );
 
   // Presentation Mode is task-mode only for v1 — exiting it if the presenter
@@ -624,7 +631,11 @@ function AppInner() {
       <div className={rootClassName}>
         <header className="topbar">
           <h1 className="topbar-title">{t.appTitle}</h1>
-          {mode === "task" ? <PhaseIndicator current={current.phase} /> : <DowntimeBadge />}
+          {mode === "task" ? (
+            isJigsaw ? <JigsawPhaseIndicator current={current.phase} /> : <PhaseIndicator current={current.phase} />
+          ) : (
+            <DowntimeBadge />
+          )}
           <span className={`data-source-badge ${liveState ? "live" : activeSession ? "real" : "placeholder"}`}>
             {liveState
               ? t.liveBadge(taskInfo.title)
@@ -637,32 +648,46 @@ function AppInner() {
         </header>
 
         <main className="main">
-          <Classroom
-            taskTitle={mode === "task" ? taskInfo.title : t.freeTimeNoTask}
-            hasTask={mode === "task"}
-            turnKey={turnKey}
-            dynamics={dynamicsVisible ? dynamics : null}
-            selected={selected}
-            hasJoined={hasJoined}
-            thinkingAgent={thinkingAgent}
-            currentMove={(() => {
-              // The pedagogy printed on the bubble: current turn's hand-tagged
-              // move. Heuristic turns show no badge (estimation stays honest).
-              const tick = dynamics?.timeline[dynamics.timeline.length - 1];
-              return tick && tick.tagged && tick.move !== "facilitate" ? tick.move : null;
-            })()}
-            flashInsight={flashInsight}
-            onFlashDone={() => setFlashInsight(null)}
-            onSelect={(name) => dispatch({ type: "SELECT", name })}
-            onJoin={() => openContribute()}
-          />
-          <WorkspacePanel
-            task={mode === "task" ? taskInfo : null}
-            sourceDocument={mode === "task" && !activeSession && !liveState ? (resolvedLibraryTask?.sourceDocument ?? null) : null}
-            entries={workspaceEntries}
-            status={status}
-            compact={isPresenting}
-          />
+          {isJigsaw ? (
+            <>
+              <JigsawClassroom
+                turns={turns}
+                turnIndex={turnIndex}
+                selected={selected}
+                onSelect={(name) => dispatch({ type: "SELECT", name })}
+              />
+              <JigsawSidePanel task={taskInfo} turns={turns} turnIndex={turnIndex} compact={isPresenting} />
+            </>
+          ) : (
+            <>
+              <Classroom
+                taskTitle={mode === "task" ? taskInfo.title : t.freeTimeNoTask}
+                hasTask={mode === "task"}
+                turnKey={turnKey}
+                dynamics={dynamicsVisible ? dynamics : null}
+                selected={selected}
+                hasJoined={hasJoined}
+                thinkingAgent={thinkingAgent}
+                currentMove={(() => {
+                  // The pedagogy printed on the bubble: current turn's hand-tagged
+                  // move. Heuristic turns show no badge (estimation stays honest).
+                  const tick = dynamics?.timeline[dynamics.timeline.length - 1];
+                  return tick && tick.tagged && tick.move !== "facilitate" ? tick.move : null;
+                })()}
+                flashInsight={flashInsight}
+                onFlashDone={() => setFlashInsight(null)}
+                onSelect={(name) => dispatch({ type: "SELECT", name })}
+                onJoin={() => openContribute()}
+              />
+              <WorkspacePanel
+                task={mode === "task" ? taskInfo : null}
+                sourceDocument={mode === "task" && !activeSession && !liveState ? (resolvedLibraryTask?.sourceDocument ?? null) : null}
+                entries={workspaceEntries}
+                status={status}
+                compact={isPresenting}
+              />
+            </>
+          )}
           {selected && (
             <AgentDrawer
               name={selected}
@@ -682,6 +707,7 @@ function AppInner() {
 
         <Controls
           mode={mode}
+          hideExtras={isJigsaw}
           turn={turnIndex}
           totalTurns={turns.length}
           playing={playing}

@@ -1,9 +1,13 @@
 // Placeholder session data. Once the layout is confirmed, this module is
 // replaced by a loader that reads the real session logs and workspace.json.
 
-export type Phase = "ideation" | "evaluation" | "synthesis";
+export type Phase = "ideation" | "evaluation" | "synthesis" | "luku" | "opetus" | "synteesi";
 export type ListName = "ideas" | "evaluations" | "synthesis";
 export type Emotion = "neutral" | "engaged" | "skeptical" | "amused";
+
+// The jigsaw task's two parallel small groups (src/jigsaw/prompts.ts). Kept
+// here rather than tasks.ts to avoid a tasks.ts -> data.ts -> tasks.ts cycle.
+export type GroupId = "ryhma1" | "ryhma2";
 
 // Dialogue-move taxonomy for the pedagogical dynamics layer (CSCL:
 // socio-cognitive conflict -> convergence). Lives here rather than in
@@ -47,6 +51,9 @@ export interface TurnView {
   // `null` means Stage 1 recorded no cost for this entry — that must surface
   // as "unknown", never get silently coerced to 0 or estimated.
   costUSD?: number | null;
+  // Which jigsaw small group this turn belongs to; undefined for facilitator
+  // lines and for every non-jigsaw task (single-room tasks never set this).
+  group?: GroupId;
 }
 
 // Cost simulation for the placeholder dataset only. Turns loaded from a real
@@ -98,6 +105,16 @@ export const PERSONAS: Record<string, Persona> = {
     summary:
       "Calm and socially perceptive, Leo integrates opposing views. He credits ideas to their originators, converts attacks into requirements, and notices when the conversation drifts away from the shared workspace. Valuable everywhere, decisive in synthesis.",
     talkativeness: 0.65,
+  },
+  // Jigsaw task only (src/jigsaw/prompts.ts / characters/aino.json) — not a
+  // member of STUDENTS, never seated in the single-room Classroom.
+  Aino: {
+    name: "Aino",
+    role: "Collaborator",
+    color: "#ec4899",
+    summary:
+      "Conscientious and cooperation-minded: reads instructions twice, does her share carefully and on time, and wants every group member to succeed. Keeps track of what the group has agreed and quietly follows up on loose ends. Her weakness is over-accommodation — she may defer to louder voices even when her own careful reading is the more accurate one.",
+    talkativeness: 0.6,
   },
   Teacher: {
     name: "Teacher",

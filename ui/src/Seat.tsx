@@ -27,11 +27,14 @@ interface Props {
    *  "listening" + gaze toward the speaker. Computed in Classroom. */
   expression?: Expression;
   gazeX?: number; // -1 | 0 | 1 — horizontal gaze direction toward the speaker
+  /** "long" widens/scrolls the bubble for jigsaw's 150-250 word teaching
+   *  turns; every other caller omits it and gets the compact default. */
+  bubbleSize?: "normal" | "long";
   animationDelay: string;
   onSelect: (name: string) => void;
 }
 
-function SeatImpl({ name, layout, persona, activity, turnKey, isSelected, thinking, moveBadge, expression = "neutral", gazeX = 0, animationDelay, onSelect }: Props) {
+function SeatImpl({ name, layout, persona, activity, turnKey, isSelected, thinking, moveBadge, expression = "neutral", gazeX = 0, bubbleSize = "normal", animationDelay, onSelect }: Props) {
   const { t } = useT();
   const speaking = activity.kind === "speaking";
   const tick = activity.kind === "ambient" ? activity.tick : null;
@@ -58,7 +61,7 @@ function SeatImpl({ name, layout, persona, activity, turnKey, isSelected, thinki
         {speaking && said && (
           <motion.div
             key={turnKey}
-            className={`bubble bubble-${layout.bubble} bubble-${layout.bubbleAlign}`}
+            className={`bubble bubble-${layout.bubble} bubble-${layout.bubbleAlign} ${bubbleSize === "long" ? "bubble-long" : ""}`}
             style={{ borderColor: persona.color }}
             initial={{ opacity: 0, x: centerX, y: 4, scale: 0.98 }}
             animate={{ opacity: 1, x: centerX, y: 0, scale: 1 }}

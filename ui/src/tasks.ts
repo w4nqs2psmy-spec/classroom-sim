@@ -16,10 +16,11 @@
 // heuristic classifier.
 
 import type { TurnView } from "./data";
+import { JIGSAW_TURNS } from "./jigsawTask";
 import cooperativeLeadershipDoc from "./source-docs/cooperative-leadership-core.json";
 import cooperativeLeadershipDocFi from "./source-docs/cooperative-leadership-core-fi.json";
 
-export type StudentName = "Vilma" | "Otto" | "Nea" | "Sami" | "Leo";
+export type StudentName = "Vilma" | "Otto" | "Nea" | "Sami" | "Leo" | "Aino";
 
 // A task's optional source document — the shared artifact the group works
 // FROM. Text is extracted ONCE at build time (scripts/extract-doc.ts, output
@@ -82,6 +83,10 @@ export interface TaskDefinition {
   sourceDocument?: SourceDocument;
   turns: TurnView[];
   fi?: LocalizedTask;
+  // "jigsaw" swaps Classroom/WorkspacePanel/PhaseIndicator for the two-group
+  // jigsaw layout (App.tsx) and hides live/dynamics/contribute controls
+  // (Controls.tsx). Absent = the default single-room layout.
+  layout?: "single-room" | "jigsaw";
 }
 
 // Resolve a task's user-facing content for a language, falling back to the
@@ -677,7 +682,7 @@ export const TASK_LIBRARY: TaskDefinition[] = [
       structure: "closed",
       interdependence: "high",
       consensusMode: "verified",
-      speakingWeights: { Vilma: 0.7, Otto: 0.7, Nea: 0.7, Sami: 0.7, Leo: 0.7 },
+      speakingWeights: { Vilma: 0.7, Otto: 0.7, Nea: 0.7, Sami: 0.7, Leo: 0.7, Aino: 0 },
       turnLengthBias: "mixed",
       transactivityTarget: "dense",
       expectedSignature: [
@@ -705,5 +710,34 @@ export const TASK_LIBRARY: TaskDefinition[] = [
       sourceDocument: { ...cooperativeLeadershipDocFi, kind: "article" },
       turns: STUDY_READING_TURNS_FI,
     },
+  },
+  {
+    id: "jigsaw-reciprocal-teaching",
+    label: "Palapeli: yhteistoiminnallinen johtajuus",
+    task: {
+      title: "Ymmärrä yhteistoiminnallinen johtajuus — palapelimenetelmä",
+      deliverable:
+        "Jokainen selittää kaikki kolme artikkelin teemaa omin sanoin — myös ne kaksi, joita ei itse lukenut.",
+    },
+    // Approximated, not authored-against: jigsaw is 100% pre-scripted from a
+    // real Stage 1 session (never live-generated), so computeDynamics never
+    // runs on it and this profile drives no verification. Kept only because
+    // PresenterDock/Controls render `profile` unconditionally for every task.
+    profile: {
+      structure: "closed",
+      interdependence: "high",
+      consensusMode: "verified",
+      speakingWeights: { Vilma: 0.7, Otto: 0.7, Nea: 0.7, Sami: 0.7, Leo: 0.7, Aino: 0.6 },
+      turnLengthBias: "long",
+      transactivityTarget: "dense",
+      expectedSignature: [
+        "kaksi ryhmää, sama artikkeli, eri lähtökohta",
+        "homogeeninen ryhmä 1 vs. roolitettu ryhmä 2",
+        "opettaa oppiakseen: palapelimenetelmä",
+        "synteesissä näkyy, kantoiko opetus",
+      ],
+    },
+    turns: JIGSAW_TURNS,
+    layout: "jigsaw",
   },
 ];

@@ -91,7 +91,10 @@ async function fetchSession(file: string): Promise<RawSession> {
 // self-contained way to recover which list a delta belongs to — no need to
 // cross-reference workspace.json, which only ever holds the *latest*
 // session's state and would silently break for any older log file.
-const LIST_FOR_PHASE: Record<Phase, ListName> = {
+// Partial, not total: `Phase` also covers the jigsaw task's luku/opetus/
+// synteesi, but real Stage 1 logs (the only thing this file ever parses)
+// never contain those — jigsaw sessions use a separate, unrelated logger.
+const LIST_FOR_PHASE: Partial<Record<Phase, ListName>> = {
   ideation: "ideas",
   evaluation: "evaluations",
   synthesis: "synthesis",
@@ -122,7 +125,7 @@ export function logEntryToTurnView(entry: LogEntry): TurnView {
   let workspaceEntry: WorkspaceEntryView | undefined;
   if (entry.workspaceChanged && isWorkspaceEntryShape(entry.workspaceDelta)) {
     workspaceEntry = {
-      list: LIST_FOR_PHASE[entry.phase],
+      list: LIST_FOR_PHASE[entry.phase]!,
       id: entry.workspaceDelta.id,
       author: entry.workspaceDelta.author,
       content: entry.workspaceDelta.content,

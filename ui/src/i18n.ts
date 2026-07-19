@@ -140,8 +140,8 @@ const PHASE_FI = { ideation: "Ideointi", evaluation: "Arviointi", synthesis: "Sy
 const MOVE_EN = { propose: "Propose", build: "Build on", challenge: "Challenge", integrate: "Integrate", facilitate: "Teacher", verdict: "Verdict" };
 const MOVE_FI = { propose: "Ehdota", build: "Jatka", challenge: "Haasta", integrate: "Kokoa", facilitate: "Opettaja", verdict: "Arvio" };
 
-const ROLE_EN = { Ideator: "Ideator", Driver: "Driver", Precisionist: "Precisionist", Critic: "Critic", Mediator: "Mediator", Facilitator: "Facilitator", Guest: "Guest" };
-const ROLE_FI = { Ideator: "Ideoija", Driver: "Vetäjä", Precisionist: "Tarkkuusihminen", Critic: "Kriitikko", Mediator: "Sovittelija", Facilitator: "Ohjaaja", Guest: "Vieras" };
+const ROLE_EN = { Ideator: "Ideator", Driver: "Driver", Precisionist: "Precisionist", Critic: "Critic", Mediator: "Mediator", Facilitator: "Facilitator", Guest: "Guest", Collaborator: "Collaborator" };
+const ROLE_FI = { Ideator: "Ideoija", Driver: "Vetäjä", Precisionist: "Tarkkuusihminen", Critic: "Kriitikko", Mediator: "Sovittelija", Facilitator: "Ohjaaja", Guest: "Vieras", Collaborator: "Yhteistyökumppani" };
 
 const KIND_EN = { "case-study": "Case study", "contested-brief": "Contested brief", "data-sheet": "Data sheet", "clue-sheet": "Clue sheet", article: "Article" };
 const KIND_FI = { "case-study": "Tapaustutkimus", "contested-brief": "Kiistanalainen aineisto", "data-sheet": "Datalomake", "clue-sheet": "Vihjekortti", article: "Artikkeli" };

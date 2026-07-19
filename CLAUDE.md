@@ -35,15 +35,30 @@ visible on a projector.
   built; expression/gaze/emphasis steps are PARKED awaiting the user's verdict on
   the look (aesthetic gate).
 - **Task library + command layer** (built 2026-07-04):
-  - `ui/src/tasks.ts`: four hand-scripted tasks, each authored against an
-    `InteractionProfile` — lapland (open/negotiated), divide-solve (divisible/silos),
-    dilemma (forced choice/false consensus), jigsaw (high interdependence).
-    Verified structurally via `computeDynamics` assertions, not vibes.
+  - `ui/src/tasks.ts`: `study-reading` (closed/verified, near-total source
+    engagement) authored against an `InteractionProfile`, verified structurally
+    via `computeDynamics` assertions, not vibes. Plus `jigsaw-reciprocal-teaching`
+    (see below) — a second, structurally different layout, not `computeDynamics`-
+    verified since it never runs live.
   - `ui/src/commands.ts`: single `CommandEnvelope` contract; every steering surface
     (hotkeys 1-4/Space/D/P in presentation mode, `PresenterDock`, future QR audience
     relay) dispatches through it; external surfaces post to
     `BroadcastChannel("classroom-sim-commands")`. Unknown task ids are rejected.
   - `keepPlaying` on `START_TASK` preserves playback across mid-run task switches.
+- **Jigsaw task** (`jigsaw-reciprocal-teaching`, built 2026-07-19): a second,
+  structurally different task layout — two parallel 3-person groups (`ryhma1`
+  homogeneous, `ryhma2` role-assigned) studying different chapters of the same
+  article, then teaching each other (Palincsar & Brown reciprocal teaching /
+  jigsaw method). Finnish content throughout (task text, dialogue), authored
+  from a real, paid `src/jigsaw/loop.ts` session log (`scripts/convert-jigsaw-
+  log.ts`, committed to `ui/src/jigsawTask.ts`) — never live-generated, same
+  zero-API-calls-in-the-UI rule as everything else. `TaskDefinition.layout:
+  "jigsaw"` swaps `Classroom`/`WorkspacePanel`/`PhaseIndicator` for
+  `JigsawClassroom`/`JigsawSidePanel`/`JigsawPhaseIndicator` in `App.tsx`,
+  which also gates `computeDynamics` off (it's tuned for the English 5-person
+  roster) and hides Live/Dynamics/Contribute in `Controls.tsx` — the existing
+  English single-room mode is otherwise untouched. `characters/aino.json` /
+  `PERSONAS.Aino` is a 6th persona used only by this task.
 - **In progress:** optional per-task SOURCE DOCUMENTS (PDF → build-time extracted
   text via `scripts/extract-doc.ts`, committed JSON in `ui/src/source-docs/`,
   source panel in WorkspacePanel, citation markers in the timeline). Stage-1
@@ -63,7 +78,10 @@ visible on a projector.
   are documented in code comments (`dialogueMove` self-report field; source-document
   cached-prefix block).
 - **All content in English** (confirmed 5×; recurring "Finnish" notes in briefs are
-  template leftovers). Character names stay as-is.
+  template leftovers). Character names stay as-is. **Exception (explicit user
+  request, 2026-07-19):** the `jigsaw-reciprocal-teaching` task is Finnish
+  throughout — task text and dialogue — regardless of the EN/FI chrome
+  toggle. App chrome (buttons, labels) still follows the toggle as normal.
 - **Zero new runtime dependencies** without explicit justification; build-time
   devDeps acceptable when never bundled (e.g. `pdfjs-dist` for PDF extraction).
 - Cost badge separates **measured** (log `costUSD`) from **estimated** (`~` prefix);

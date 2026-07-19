@@ -42,6 +42,9 @@ interface Props {
   onToggleDynamics: () => void;
   lang: Lang;
   onSetLang: (lang: Lang) => void;
+  /** Hides Live/Dynamics/Contribute for the jigsaw task: pre-scripted,
+   *  never live-generated, and dynamics never runs on it (App.tsx). */
+  hideExtras?: boolean;
 }
 
 export function Controls(p: Props) {
@@ -97,14 +100,18 @@ export function Controls(p: Props) {
         </span>
       )}
 
-      <button className="btn" onClick={p.onLive} title={t.liveBtnTitle}>
-        {t.liveBtn}
-      </button>
-      {p.liveGenerating && <span className="control-label">{t.liveGenerating}</span>}
-      {p.liveUnavailable && (
-        <span className="control-label session-error" title={t.liveDevOnly}>
-          {t.liveFailed}
-        </span>
+      {!p.hideExtras && (
+        <>
+          <button className="btn" onClick={p.onLive} title={t.liveBtnTitle}>
+            {t.liveBtn}
+          </button>
+          {p.liveGenerating && <span className="control-label">{t.liveGenerating}</span>}
+          {p.liveUnavailable && (
+            <span className="control-label session-error" title={t.liveDevOnly}>
+              {t.liveFailed}
+            </span>
+          )}
+        </>
       )}
 
       <div className="controls-divider" />
@@ -132,21 +139,25 @@ export function Controls(p: Props) {
             ))}
           </div>
 
-          <button
-            className={`btn ${p.dynamicsVisible ? "btn-active" : ""}`}
-            onClick={p.onToggleDynamics}
-            title={t.dynamicsTitle}
-          >
-            {t.dynamics}
-          </button>
+          {!p.hideExtras && (
+            <button
+              className={`btn ${p.dynamicsVisible ? "btn-active" : ""}`}
+              onClick={p.onToggleDynamics}
+              title={t.dynamicsTitle}
+            >
+              {t.dynamics}
+            </button>
+          )}
 
           <button className="btn" onClick={p.onToggleDock} title={t.tasksTitle}>
             {t.tasksBtn}
           </button>
 
-          <button className="btn" onClick={p.onContribute} title={t.youTitle}>
-            {t.youBtn}
-          </button>
+          {!p.hideExtras && (
+            <button className="btn" onClick={p.onContribute} title={t.youTitle}>
+              {t.youBtn}
+            </button>
+          )}
 
           <button className="btn" onClick={p.onPresent} title={t.presentTitle}>
             {t.present}

@@ -93,6 +93,17 @@ const VARIANTS: Record<string, { back?: (t: CharacterTokens) => ReactNode; front
       />
     ),
   },
+  // Chin-length bob with a slight outward flip at the ends — distinct from
+  // Nea's longer, straight-sided hair (which reaches the shoulders).
+  Aino: {
+    front: (t) => (
+      <path
+        d="M 26 48 Q 22 46 24 36 Q 25 14 50 14 Q 75 14 76 36 Q 78 46 74 48 L 65 48 L 65 34 Q 58 26 50 26 Q 42 26 35 34 L 35 48 Z"
+        fill={t.hair}
+        {...OUTLINE}
+      />
+    ),
+  },
   Teacher: {
     front: (t) => (
       <path d="M 27 36 Q 27 14 52 14 Q 75 16 73 36 Q 73 24 57 23 L 36 26 Q 28 28 27 36 Z" fill={t.hair} {...OUTLINE} />
@@ -181,6 +192,15 @@ const FACES: Record<string, { brows: ReactNode; mouth: string }> = {
       </>
     ),
     mouth: "M 44.5 51 Q 50 54.5 55.5 51",
+  },
+  Aino: {
+    brows: (
+      <>
+        <path d="M 35 32 Q 41 30 46 32" {...FEATURE} />
+        <path d="M 54 32 Q 59 30 65 32" {...FEATURE} />
+      </>
+    ),
+    mouth: "M 44 51.5 Q 50 55 56 51.5",
   },
   You: {
     brows: (

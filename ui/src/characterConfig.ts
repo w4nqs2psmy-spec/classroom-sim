@@ -19,6 +19,7 @@ export const CHARACTER_TOKENS: Record<string, CharacterTokens> = {
   Nea: { clothing: "#06b6d4", clothingDark: "#0592aa", skin: "#8d5a3b", hair: "#14100c" },
   Sami: { clothing: "#22c55e", clothingDark: "#1a9e4b", skin: "#c68e5e", hair: "#8a4b23" },
   Leo: { clothing: "#3b82f6", clothingDark: "#2f68c5", skin: "#a06a45", hair: "#3d2c1e" },
+  Aino: { clothing: "#ec4899", clothingDark: "#c2378a", skin: "#e0a878", hair: "#4a2e1a" },
   Teacher: { clothing: "#a855f7", clothingDark: "#8a44cc", skin: "#e8b48c", hair: "#9aa2b1" },
   // The human participant — slate outfit + a visitor lanyard, deliberately
   // reading as a guest rather than one of the coloured AI agents.
