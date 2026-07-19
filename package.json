@@ -9,6 +9,8 @@
   "scripts": {
     "start": "node src/loop.ts",
     "dry-run": "node src/loop.ts --dry-run",
+    "jigsaw": "node src/jigsaw/loop.ts",
+    "jigsaw:dry": "node src/jigsaw/loop.ts --dry-run",
     "ui": "vite --config ui/vite.config.ts",
     "extract-doc": "node scripts/extract-doc.ts"
   },
